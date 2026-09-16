@@ -1,0 +1,21 @@
+name: PopupGenerator
+options:
+  bundleIdPrefix: com.xhhan
+  deploymentTarget:
+    iOS: "15.0"
+  xcodeVersion: "15.0"
+targets:
+  PopupGenerator:
+    type: application
+    platform: iOS
+    sources:
+      - PopupGenerator
+    resources:
+      - Resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.xhhan.popupgen
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGNING_ALLOWED: NO
+        INFOPLIST_FILE: Info.plist
+        SWIFT_VERSION: "5.0"
