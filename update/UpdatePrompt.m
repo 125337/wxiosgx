@@ -1,0 +1,114 @@
+/*
+ * UpdatePrompt.m —— 注入用弹窗插件
+ * 行为完全由服务器控制:启动后请求 CONTROL_URL,按其返回的 JSON 决定是否弹窗。
+ * 只依赖 Foundation/UIKit 系统库,不依赖 CydiaSubstrate,证书签后普通设备可跑。
+ */
+#import <UIKit/UIKit.h>
+#import <Foundation/Foundation.h>
+
+/// TODO: 改成你自己的服务器地址(等用户提供后我替换)
+static NSString *const kControlURL = @"https://your-server.com/popup.json";
+
+static NSString *keyFor(NSString *suffix, NSString *version) {
+    return [NSString stringWithFormat:@"gd_popup_%@_%@",
+            suffix,
+            [[NSBundle mainBundle].bundleIdentifier stringByReplacingOccurrencesOfString:@"." withString:@"_"] ?: @"app"];
+}
+
+static UIViewController *topVC(void) {
+    UIWindow *w = nil;
+    if (@available(iOS 13.0, *)) {
+        for (UIWindowScene *s in UIApplication.sharedApplication.connectedScenes) {
+            if (s.activationState == UISceneActivationStateForegroundActive) {
+                w = s.keyWindow ?: s.windows.firstObject;
+                if (w) break;
+            }
+        }
+    }
+    if (!w) w = UIApplication.sharedApplication.windows.firstObject;
+    UIViewController *vc = w.rootViewController;
+    while (vc.presentedViewController) vc = vc.presentedViewController;
+    return vc;
+}
+
+static void showPopup(NSDictionary *cfg) {
+    NSString *title   = cfg[@"title"]   ?: @"提示";
+    NSString *message = cfg[@"message"] ?: @"";
+    NSString *confirm = cfg[@"confirm"] ?: @"确定";
+    NSString *cancel  = cfg[@"cancel"]  ?: @"取消";
+    NSString *url     = cfg[@"url"];
+
+    UIAlertController *alert =
+        [UIAlertController alertControllerWithTitle:title
+                                            message:message
+                                     preferredStyle:UIAlertControllerStyleAlert];
+    if (url.length) {
+        [alert addAction:[UIAlertAction actionWithTitle:confirm
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(UIAlertAction *a) {
+            [[UIApplication sharedApplication] openURL:[NSURL URLWithString:url]
+                                               options:@{} completionHandler:nil];
+        }]];
+    }
+    BOOL hasIgnore = [cfg[@"ignore_option"] boolValue];
+    if (hasIgnore) {
+        NSString *target = cfg[@"target_version"] ?: @"1.0.0";
+        [alert addAction:[UIAlertAction actionWithTitle:cancel
+                                                  style:UIAlertActionStyleCancel
+                                                handler:^(UIAlertAction *a) {
+            [[NSUserDefaults standardUserDefaults] setObject:target forKey:keyFor(@"ignored", target)];
+        }]];
+    } else if (cancel.length) {
+        [alert addAction:[UIAlertAction actionWithTitle:cancel
+                                                  style:UIAlertActionStyleCancel handler:nil]];
+    }
+    UIViewController *top = topVC();
+    if (top) { dispatch_async(dispatch_get_main_queue(), ^{ [top presentViewController:alert animated:YES completion:nil]; }); }
+}
+
+static void handleConfig(NSDictionary *cfg) {
+    if (![cfg isKindOfClass:NSDictionary.class]) return;
+    if (![cfg[@"enabled"] boolValue]) return;                              // 服务器总开关
+
+    NSString *target = cfg[@"target_version"];                             // 如 "1.2.0"
+    NSString *diffState = nil;
+    if (target.length) {
+        NSString *cur = [NSBundle mainBundle].infoDictionary[@"CFBundleShortVersionString"] ?: @"0.0.0";
+        diffState = [cur compare:target options:NSNumericSearch] == NSOrderedAscending ? @"outdated" : @"ok";
+    } else {
+        diffState = @"outdated";                                           // 服务器不给版本号 = 无条件弹
+    }
+    BOOL outdated = [diffState isEqualToString:@"outdated"];
+    if (!outdated) return;
+
+    if ([cfg[@"once"] boolValue]) {                                        // 每版本只弹一次(含忽略)
+        NSString *seenKey = keyFor(@"seen", target ?: @"any");
+        if ([[NSUserDefaults standardUserDefaults] objectForKey:seenKey]) return;
+        [[NSUserDefaults standardUserDefaults] setObject:@(YES) forKey:seenKey];
+        NSString *ignKey = keyFor(@"ignored", target ?: @"any");
+        if ([[NSUserDefaults standardUserDefaults] objectForKey:ignKey]) return;
+    }
+    showPopup(cfg);
+}
+
+static void checkForUpdate(void) {
+    NSURL *u = [NSURL URLWithString:kControlURL];
+    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:u];
+    req.timeoutInterval = 8;
+    [[[NSURLSession sharedSession] dataTaskWithRequest:req
+                                    completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
+        if (e || d.length == 0) return;                                    // 服务器挂/无网 = 不弹,不影响 App
+        NSError *err = nil;
+        id obj = [NSJSONSerialization JSONObjectWithData:d options:0 error:&err];
+        if (err || !obj) return;
+        handleConfig(obj);
+    }] resume];
+}
+
+__attribute__((constructor))
+static void entry(void) {
+    // constructor 在进程启动早期执行,界面还没起来,延迟到启动后几秒再请求/弹窗
+    double delay = 2.0;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{ checkForUpdate(); });
+}
