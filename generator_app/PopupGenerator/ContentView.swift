@@ -1,18 +1,15 @@
 //
 //  ContentView.swift
-//  弹窗配置表单 + 生成导出
+//  版本标记输入 + 生成导出
+//
+//  弹窗内容(标题/文字/按钮/链接)全部由服务器 popup.json 控制,
+//  这里只需要填"版本标记":后台 plugin_target_version 高于它 → 弹窗;等于 → 不弹。
 //
 import SwiftUI
 import UIKit
 
 struct ContentView: View {
-    @State private var title = "发现新版本"
-    @State private var message = "有新版本可用，是否前往更新？"
-    @State private var confirm = "去更新"
-    @State private var cancel = "不再提示"
-    @State private var url = ""
-    @State private var pluginVersion = ""      // 留空 = 无条件弹
-    @State private var showIgnore = true
+    @State private var pluginVersion = ""
     @State private var showShare = false
     @State private var generatedURL: URL?
     @State private var errorMsg: String?
@@ -21,26 +18,12 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("弹窗内容")) {
-                    TextField("标题", text: $title)
-                    TextField("内容", text: $message)
-                }
-                Section(header: Text("按钮")) {
-                    TextField("确认按钮(去更新)", text: $confirm)
-                    TextField("取消按钮(不再提示)", text: $cancel)
-                    Toggle("显示\"不再提示\"按钮", isOn: $showIgnore)
-                }
-                Section(header: Text("更新判断")) {
-                    TextField("目标插件版本(留空=无条件弹)", text: $pluginVersion)
+                Section(header: Text("版本标记")) {
+                    TextField("插件版本号,如 2.2.0", text: $pluginVersion)
                         .keyboardType(.numbersAndPunctuation)
-                    Text("以你的插件版本为准:用户本地版本低于此值则弹窗。点\"去更新/不再提示\"写入版本停止提醒,点\"取消\"下次继续弹。")
+                    Text("这个版本号会写入生成的 dylib。\n后台 popup.json 的 plugin_target_version 高于它 → 用户弹窗提示更新;等于它 → 已是最新,不弹。")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                }
-                Section(header: Text("下载地址")) {
-                    TextField("https://…", text: $url)
-                        .keyboardType(.URL)
-                        .autocapitalization(.none)
                 }
                 if let err = errorMsg {
                     Section { Text(err).foregroundColor(.red).font(.caption) }
@@ -70,11 +53,7 @@ struct ContentView: View {
         generating = true
         DispatchQueue.global().async {
             do {
-                let config = PopupConfig(
-                    title: title, message: message,
-                    confirm: confirm, cancel: cancel,
-                    url: url, pluginVersion: pluginVersion,
-                    showIgnore: showIgnore)
+                let config = PopupConfig(pluginVersion: pluginVersion)
                 let template = try TemplateEngine.loadTemplate()
                 let dylib = try TemplateEngine.generate(config: config, template: template)
 
