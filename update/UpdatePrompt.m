@@ -24,9 +24,10 @@ static NSString *localPluginVersion(void) {
 }
 
 static NSString *keyFor(NSString *suffix, NSString *version) {
-    return [NSString stringWithFormat:@"gd_popup_%@_%@",
-            suffix,
-            [[NSBundle mainBundle].bundleIdentifier stringByReplacingOccurrencesOfString:@"." withString:@"_"] ?: @"app"];
+    NSString *ver = version.length ? version : @"any";                     // 版本参与 key:改版本号即重置标记
+    NSString *bundle = [[NSBundle mainBundle].bundleIdentifier
+                          stringByReplacingOccurrencesOfString:@"." withString:@"_"] ?: @"app";
+    return [NSString stringWithFormat:@"gd_popup_%@_%@_%@", suffix, ver, bundle];
 }
 
 static UIViewController *topVC(void) {
@@ -66,7 +67,7 @@ static void showPopup(NSDictionary *cfg) {
     }
     BOOL hasIgnore = [cfg[@"ignore_option"] boolValue];
     if (hasIgnore) {
-        NSString *target = cfg[@"target_version"] ?: @"1.0.0";
+        NSString *target = cfg[@"plugin_target_version"] ?: @"1.0.0";
         [alert addAction:[UIAlertAction actionWithTitle:cancel
                                                   style:UIAlertActionStyleCancel
                                                 handler:^(UIAlertAction *a) {
