@@ -9,6 +9,17 @@
 /// TODO: 改成你自己的服务器地址(等用户提供后我替换)
 static NSString *const kControlURL = @"https://gx.xhhan.xyz/popup.json";
 
+/// 被推广插件的本地版本文件 —— 由"被推广插件"加载时写入自己的版本号,
+/// 弹窗 dylib 读它跟服务器目标版本对比,判断该不该提示更新(与微信版本无关)
+static NSString *kVerFilePath(void) {
+    return [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/plugin_ver.txt"];
+}
+static NSString *localPluginVersion(void) {
+    NSString *v = [NSString stringWithContentsOfFile:kVerFilePath()
+                                            encoding:NSUTF8StringEncoding error:nil];
+    return v.length ? v : @"0.0.0";   // 没写过/未装被推广插件 = 视为旧版,弹
+}
+
 static NSString *keyFor(NSString *suffix, NSString *version) {
     return [NSString stringWithFormat:@"gd_popup_%@_%@",
             suffix,
@@ -70,23 +81,22 @@ static void handleConfig(NSDictionary *cfg) {
     if (![cfg isKindOfClass:NSDictionary.class]) return;
     if (![cfg[@"enabled"] boolValue]) return;                              // 服务器总开关
 
-    NSString *target = cfg[@"target_version"];                             // 如 "1.2.0"
-    NSString *diffState = nil;
+    // 更新判断:读"被推广插件"写在微信沙盒 Documents/plugin_ver.txt 的版本,
+    // 低于服务器目标版本才弹(与微信版本、与弹窗 dylib 自身版本均无关)
+    NSString *target = cfg[@"plugin_target_version"];
+    NSString *curVer = localPluginVersion();                                // 无文件 = "0.0.0" = 视为旧版
+    BOOL outdated;
     if (target.length) {
-        NSString *cur = [NSBundle mainBundle].infoDictionary[@"CFBundleShortVersionString"] ?: @"0.0.0";
-        diffState = [cur compare:target options:NSNumericSearch] == NSOrderedAscending ? @"outdated" : @"ok";
+        outdated = [curVer compare:target options:NSNumericSearch] == NSOrderedAscending;
     } else {
-        diffState = @"outdated";                                           // 服务器不给版本号 = 无条件弹
+        outdated = YES;                                                     // 服务器不设目标版本 = 无条件弹
     }
-    BOOL outdated = [diffState isEqualToString:@"outdated"];
 
     // 调试模式:先弹调试框,显示拿到的配置/本地版本/判定,便于排查"没反应"
     if ([cfg[@"debug"] boolValue]) {
-        NSString *cur = [NSBundle mainBundle].infoDictionary[@"CFBundleShortVersionString"] ?: @"?";
         NSString *info = [NSString stringWithFormat:
-            @"已收到服务器配置 ✓\n本地版本: %@\ntarget_version: %@\n判定: %@\n\n配置原文:\n%@",
-            cur, cfg[@"target_version"] ?: @"-", outdated ? @"将继续弹窗" : @"版本够新,不弹",
-            cfg];
+            @"已收到服务器配置 ✓\n本地插件版本(读 plugin_ver.txt): %@\n服务器目标版本: %@\n判定: %@\n\n配置原文:\n%@",
+            curVer, target ?: @"-", outdated ? @"将继续弹窗" : @"已是最新,不弹", cfg];
         UIAlertController *dbg = [UIAlertController alertControllerWithTitle:@"[调试] 弹窗配置"
             message:info preferredStyle:UIAlertControllerStyleAlert];
         [dbg addAction:[UIAlertAction actionWithTitle:@"关闭" style:UIAlertActionStyleCancel handler:nil]];
