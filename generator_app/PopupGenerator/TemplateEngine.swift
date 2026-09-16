@@ -2,9 +2,10 @@
 //  TemplateEngine.swift
 //  模板 dylib 等宽字符串替换引擎
 //
-//  原理:模板 dylib 内嵌等宽占位符数组(如 TITLE_BEGIN_ + 定长填充),
-//  生成时在二进制里定位锚点,按固定宽度写入 UTF-8 内容,多余补 0。
-//  因等宽替换不会改变 Mach-O 结构,且模板未签名,替换后即可直接使用。
+//  原理:模板 dylib 内嵌等宽占位符数组(PLUGINVER_BEGIN_),生成时在二进制里
+//  定位锚点,按固定宽度写入版本号,多余补 0。因等宽替换不会改变 Mach-O 结构,
+//  且模板未签名,替换后即可直接使用。
+//  弹窗内容(标题/文字/按钮/链接)全部由服务器 popup.json 控制,这里只写版本标记。
 //
 import Foundation
 
@@ -21,13 +22,7 @@ enum GenError: LocalizedError {
 }
 
 struct PopupConfig {
-    var title = "发现新版本"
-    var message = "有新版本可用，是否前往更新？"
-    var confirm = "去更新"
-    var cancel = "不再提示"
-    var url = ""
-    var pluginVersion = ""   // 留空 = 无条件弹
-    var showIgnore = true    // 显示"不再提示"按钮
+    var pluginVersion = ""   // 版本标记:后台目标版本高于它才弹;留空=无条件弹
 }
 
 struct Placeholder {
@@ -39,13 +34,7 @@ struct Placeholder {
 enum TemplateEngine {
 
     static let placeholders: [Placeholder] = [
-        Placeholder(anchor: "TITLE_BEGIN_",    width: 64,   content: ""),
-        Placeholder(anchor: "MESSAGE_BEGIN_",  width: 192,  content: ""),
-        Placeholder(anchor: "CONFIRM_BEGIN_",  width: 32,   content: ""),
-        Placeholder(anchor: "CANCEL_BEGIN_",   width: 32,   content: ""),
-        Placeholder(anchor: "URL_BEGIN_",      width: 256,  content: ""),
-        Placeholder(anchor: "PLUGINVER_BEGIN_",width: 32,   content: ""),
-        Placeholder(anchor: "IGNORE_FLAG_",    width: 20,   content: ""),
+        Placeholder(anchor: "PLUGINVER_BEGIN_", width: 32, content: ""),
     ]
 
     /// 从 App Bundle 加载模板
@@ -59,22 +48,9 @@ enum TemplateEngine {
     /// 用配置替换模板占位符,生成新 dylib 二进制
     static func generate(config: PopupConfig, template: Data) throws -> Data {
         var data = template
-        var slots = [
-            placeholders[0], placeholders[1], placeholders[2],
-            placeholders[3], placeholders[4], placeholders[5],
-            placeholders[6],
-        ]
-        slots[0].content = config.title
-        slots[1].content = config.message
-        slots[2].content = config.confirm
-        slots[3].content = config.cancel
-        slots[4].content = config.url
-        slots[5].content = config.pluginVersion
-        slots[6].content = config.showIgnore ? "1" : "0"
-
-        for slot in slots {
-            try replace(slot, in: &data)
-        }
+        var slot = placeholders[0]
+        slot.content = config.pluginVersion
+        try replace(slot, in: &data)
         return data
     }
 
