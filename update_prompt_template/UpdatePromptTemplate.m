@@ -22,13 +22,15 @@
 /* 服务器控制地址 */
 static NSString *const kControlURL = @"https://gx.xhhan.xyz/popup.json";
 
-/* 版本标记占位符(全局非 const,内容完整落在 __data 段,生成器可字节级定位替换) */
-__attribute__((used)) static char kPluginVer[32] = "PLUGINVER_BEGIN_FFFFFFFFFFFFFFF";
+/* 版本标记占位符(全局非 const,内容完整落在 __data 段,生成器可字节级定位替换)。
+ * 注意:锚点只允许出现在数组初始化里,运行时不得再用 "PLUGINVER_BEGIN_" 字面量,
+ * 否则会多出 __cstring 常量池副本,被生成器等宽替换时破坏相邻字符串。 */
+#define kPluginVerAnchor "PLUGINVER_BEGIN_"
+__attribute__((used)) static char kPluginVer[32] = kPluginVerAnchor "FFFFFFFFFFFFFFF";
 
-/* 从占位符数组读取字符串:跳过定位锚点,读到 null 截断 */
-static NSString *strOf(char *buf, NSUInteger len, const char *anchor) {
+/* 从占位符数组读取字符串:跳过固定长度锚点(skip 为编译期常量),读到 null 截断 */
+static NSString *strOf(char *buf, NSUInteger len, NSUInteger skip) {
     if (!buf) return @"";
-    size_t skip = strlen(anchor);
     if (skip >= len) return @"";
     char *s = buf + skip;
     if (s[0] == 0) return @"";
@@ -91,7 +93,7 @@ static void handleConfig(NSDictionary *cfg) {
     if (!enabled) return;                                                // 服务器总开关
 
     NSString *target = cfg[@"plugin_target_version"];                    // 后台目标版本
-    NSString *local  = strOf(kPluginVer, sizeof kPluginVer, "PLUGINVER_BEGIN_");  // dylib 内置版本标记
+    NSString *local  = strOf(kPluginVer, sizeof kPluginVer, sizeof(kPluginVerAnchor) - 1);  // dylib 内置版本标记
 
     BOOL outdated;
     NSString *judge;
