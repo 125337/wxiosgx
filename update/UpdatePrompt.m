@@ -79,6 +79,21 @@ static void handleConfig(NSDictionary *cfg) {
         diffState = @"outdated";                                           // 服务器不给版本号 = 无条件弹
     }
     BOOL outdated = [diffState isEqualToString:@"outdated"];
+
+    // 调试模式:先弹调试框,显示拿到的配置/本地版本/判定,便于排查"没反应"
+    if ([cfg[@"debug"] boolValue]) {
+        NSString *cur = [NSBundle mainBundle].infoDictionary[@"CFBundleShortVersionString"] ?: @"?";
+        NSString *info = [NSString stringWithFormat:
+            @"已收到服务器配置 ✓\n本地版本: %@\ntarget_version: %@\n判定: %@\n\n配置原文:\n%@",
+            cur, cfg[@"target_version"] ?: @"-", outdated ? @"将继续弹窗" : @"版本够新,不弹",
+            cfg];
+        UIAlertController *dbg = [UIAlertController alertControllerWithTitle:@"[调试] 弹窗配置"
+            message:info preferredStyle:UIAlertControllerStyleAlert];
+        [dbg addAction:[UIAlertAction actionWithTitle:@"关闭" style:UIAlertActionStyleCancel handler:nil]];
+        UIViewController *top = topVC();
+        if (top) dispatch_async(dispatch_get_main_queue(), ^{ [top presentViewController:dbg animated:YES completion:nil]; });
+        return;                                                            // 调试时只看结果,不再弹正式框
+    }
     if (!outdated) return;
 
     if ([cfg[@"once"] boolValue]) {                                        // 每版本只弹一次(含忽略)
