@@ -3,7 +3,7 @@ name: template-build
 on:
   push:
     branches: ["main"]
-    paths: ["update_prompt_template/**", ".github/**"]
+    paths: ["template/**", ".github/**"]
   workflow_dispatch: {}
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
         run: |
           set -e
           xcrun -sdk iphoneos clang -dynamiclib \
-            update_prompt_template/UpdatePromptTemplate.m -o UpdatePromptTemplate.dylib \
+            template/UpdatePromptTemplate.m -o UpdatePromptTemplate.dylib \
             -arch arm64 -arch arm64e -fobjc-arc \
             -framework Foundation -framework UIKit \
             -miphoneos-version-min=13.0
