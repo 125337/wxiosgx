@@ -33,7 +33,7 @@ struct PopupConfig {
 struct Placeholder {
     let anchor: String       // 定位锚点
     let width: Int           // 数组总宽度(含锚点)
-    let content: String
+    var content: String
 }
 
 enum TemplateEngine {
