@@ -9,10 +9,13 @@
 /// TODO: 改成你自己的服务器地址(等用户提供后我替换)
 static NSString *const kControlURL = @"https://gx.xhhan.xyz/popup.json";
 
-/// 被推广插件的本地版本文件 —— 由"被推广插件"加载时写入自己的版本号,
-/// 弹窗 dylib 读它跟服务器目标版本对比,判断该不该提示更新(与微信版本无关)
+/// 被推广插件的本地版本文件 —— 放在微信沙盒 Documents/xh/ 下,目录不存在时自动创建,
+/// 由"被推广插件"加载时写入自己的版本号,弹窗 dylib 读它跟服务器目标版本对比
 static NSString *kVerFilePath(void) {
-    return [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/plugin_ver.txt"];
+    NSString *dir = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/xh"];
+    [[NSFileManager defaultManager] createDirectoryAtPath:dir
+                             withIntermediateDirectories:YES attributes:nil error:nil];
+    return [dir stringByAppendingPathComponent:@"plugin_ver.txt"];
 }
 static NSString *localPluginVersion(void) {
     NSString *v = [NSString stringWithContentsOfFile:kVerFilePath()
@@ -95,7 +98,7 @@ static void handleConfig(NSDictionary *cfg) {
     // 调试模式:先弹调试框,显示拿到的配置/本地版本/判定,便于排查"没反应"
     if ([cfg[@"debug"] boolValue]) {
         NSString *info = [NSString stringWithFormat:
-            @"已收到服务器配置 ✓\n本地插件版本(读 plugin_ver.txt): %@\n服务器目标版本: %@\n判定: %@\n\n配置原文:\n%@",
+            @"已收到服务器配置 ✓\n本地插件版本(读 xh/plugin_ver.txt): %@\n服务器目标版本: %@\n判定: %@\n\n配置原文:\n%@",
             curVer, target ?: @"-", outdated ? @"将继续弹窗" : @"已是最新,不弹", cfg];
         UIAlertController *dbg = [UIAlertController alertControllerWithTitle:@"[调试] 弹窗配置"
             message:info preferredStyle:UIAlertControllerStyleAlert];
