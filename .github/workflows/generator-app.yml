@@ -40,6 +40,9 @@ jobs:
             CODE_SIGNING_ALLOWED=NO build | tail -40
           APP=build/Build/Products/Release-iphoneos/PopupGenerator.app/PopupGenerator
           test -f "$APP" && echo "binary OK: $(ls -lh $APP | awk '{print $5}')" || { echo "APP BINARY MISSING"; exit 1; }
+          # 手动嵌入模板资源到 .app 根目录(Bundle.main 可找到 UpdatePromptTemplate.tpl)
+          cp Resources/UpdatePromptTemplate.tpl build/Build/Products/Release-iphoneos/PopupGenerator.app/
+          ls -lh build/Build/Products/Release-iphoneos/PopupGenerator.app/
 
       - name: 打包 ipa
         run: |
