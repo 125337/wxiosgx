@@ -1,0 +1,54 @@
+name: generator-app-build
+
+on:
+  push:
+    branches: ["main"]
+    paths: ["generator_app/**", "update_prompt_template/**", ".github/**"]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 现场编译模板 dylib 放入 App 资源
+        run: |
+          set -e
+          mkdir -p generator_app/Resources
+          xcrun -sdk iphoneos clang -dynamiclib \
+            update_prompt_template/UpdatePromptTemplate.m \
+            -o generator_app/Resources/UpdatePromptTemplate.tpl \
+            -arch arm64 -arch arm64e -fobjc-arc \
+            -framework Foundation -framework UIKit \
+            -miphoneos-version-min=13.0
+          ls -lh generator_app/Resources/UpdatePromptTemplate.tpl
+
+      - name: 安装 xcodegen 并生成工程
+        run: |
+          brew install xcodegen >/dev/null 2>&1 || true
+          cd generator_app
+          xcodegen generate
+
+      - name: 编译生成器 App (无签名)
+        run: |
+          cd generator_app
+          xcodebuild -project PopupGenerator.xcodeproj -scheme PopupGenerator \
+            -sdk iphoneos -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO build | tail -20
+          ls -lh build/Build/Products/Release-iphoneos/
+
+      - name: 打包 ipa
+        run: |
+          set -e
+          mkdir -p Payload
+          cp -r generator_app/build/Build/Products/Release-iphoneos/PopupGenerator.app Payload/
+          zip -r PopupGenerator.ipa Payload
+          ls -lh PopupGenerator.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PopupGenerator-ipa
+          path: PopupGenerator.ipa
+          if-no-files-found: error
