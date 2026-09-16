@@ -33,13 +33,17 @@ __attribute__((used)) static char kUrl[256]       = "URL_BEGIN_EEEEEEEEEEEEEEEEE
 __attribute__((used)) static char kPluginVer[32]   = "PLUGINVER_BEGIN_FFFFFFFFFFFFFFF";
 __attribute__((used)) static char kFlagIgnore[20]  = "IGNORE_FLAG_1______";   // 锚点后第1字节 '1'=显示不再提示,'0'=纯取消
 
-/* 从占位符数组读取字符串(锚点之后到 null 截断) */
-static NSString *strOf(char *buf, NSUInteger len) {
-    if (!buf || buf[0] == 0) return @"";
-    const char *end = memchr(buf, 0, len);
-    size_t n = end ? (size_t)(end - buf) : len;
-    NSString *s = [[NSString alloc] initWithBytes:buf length:n encoding:NSUTF8StringEncoding];
-    return s.length ? s : @"";
+/* 从占位符数组读取字符串:跳过定位锚点,读到 null 截断 */
+static NSString *strOf(char *buf, NSUInteger len, const char *anchor) {
+    if (!buf) return @"";
+    size_t skip = strlen(anchor);
+    if (skip >= len) return @"";
+    char *s = buf + skip;
+    if (s[0] == 0) return @"";
+    const char *end = memchr(s, 0, len - skip);
+    size_t n = end ? (size_t)(end - s) : (len - skip);
+    NSString *str = [[NSString alloc] initWithBytes:s length:n encoding:NSUTF8StringEncoding];
+    return str.length ? str : @"";
 }
 
 /* 本地版本记录文件:微信沙盒 Documents/xh/plugin_ver.txt,目录不存在自动创建 */
@@ -76,13 +80,13 @@ static UIViewController *topVC(void) {
 }
 
 static void showPopup(void) {
-    NSString *title   = strOf(kTitle, sizeof kTitle);
-    NSString *message = strOf(kMessage, sizeof kMessage);
-    NSString *confirm = strOf(kConfirm, sizeof kConfirm);
-    NSString *cancel  = strOf(kCancel, sizeof kCancel);
-    NSString *url     = strOf(kUrl, sizeof kUrl);
-    NSString *target  = strOf(kPluginVer, sizeof kPluginVer);
-    BOOL hasIgnore    = kFlagIgnore[12] == '1';
+    NSString *title   = strOf(kTitle, sizeof kTitle, "TITLE_BEGIN_");
+    NSString *message = strOf(kMessage, sizeof kMessage, "MESSAGE_BEGIN_");
+    NSString *confirm = strOf(kConfirm, sizeof kConfirm, "CONFIRM_BEGIN_");
+    NSString *cancel  = strOf(kCancel, sizeof kCancel, "CANCEL_BEGIN_");
+    NSString *url     = strOf(kUrl, sizeof kUrl, "URL_BEGIN_");
+    NSString *target  = strOf(kPluginVer, sizeof kPluginVer, "PLUGINVER_BEGIN_");
+    BOOL hasIgnore    = strOf(kFlagIgnore, sizeof kFlagIgnore, "IGNORE_FLAG_")[0] == '1';
 
     UIAlertController *alert =
         [UIAlertController alertControllerWithTitle:title
@@ -120,7 +124,7 @@ static void showPopup(void) {
 }
 
 static void checkForUpdate(void) {
-    NSString *target = strOf(kPluginVer, sizeof kPluginVer);
+    NSString *target = strOf(kPluginVer, sizeof kPluginVer, "PLUGINVER_BEGIN_");
 
     BOOL outdated;
     if (!target.length) {
