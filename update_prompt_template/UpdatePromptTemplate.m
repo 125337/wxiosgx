@@ -12,9 +12,8 @@
  *   kConfirm[32]    确认按钮    锚点 CONFIRM_BEGIN_
  *   kCancel[32]     取消按钮    锚点 CANCEL_BEGIN_
  *   kUrl[256]       跳转地址    锚点 URL_BEGIN_
- *   kPluginVer[32]  目标插件版本 锚点 PLUGINVER_BEGIN_
- *   kFlagUncond[2]  '1'=无条件弹(忽略版本对比)
- *   kFlagIgnore[2]  '1'=显示"不再提示"按钮(点了写入版本,不再提醒)
+ *   kPluginVer[32]  目标插件版本 锚点 PLUGINVER_BEGIN_ (留空=无条件弹)
+ *   kFlagIgnore[16] '1'=显示"不再提示"按钮 锚点 IGNORE_FLAG_ (留空=无条件弹)
  *
  * ── 更新判断逻辑（以你的插件版本为准）──
  *   本地记录版本(微信沙盒 Documents/xh/plugin_ver.txt) < 内置目标插件版本 → 弹窗
@@ -32,8 +31,7 @@ __attribute__((used)) static char kConfirm[32]    = "CONFIRM_BEGIN_CCCCCCCCCCCCC
 __attribute__((used)) static char kCancel[32]     = "CANCEL_BEGIN_DDDDDDDDDDDDDDDDDD";
 __attribute__((used)) static char kUrl[256]       = "URL_BEGIN_EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE";
 __attribute__((used)) static char kPluginVer[32]   = "PLUGINVER_BEGIN_FFFFFFFFFFFFFFF";
-__attribute__((used)) static char kFlagUncond[2]  = "0";
-__attribute__((used)) static char kFlagIgnore[2]  = "1";
+__attribute__((used)) static char kFlagIgnore[20]  = "IGNORE_FLAG_1______";   // 锚点后第1字节 '1'=显示不再提示,'0'=纯取消
 
 /* 从占位符数组读取字符串(锚点之后到 null 截断) */
 static NSString *strOf(char *buf, NSUInteger len) {
@@ -84,7 +82,7 @@ static void showPopup(void) {
     NSString *cancel  = strOf(kCancel, sizeof kCancel);
     NSString *url     = strOf(kUrl, sizeof kUrl);
     NSString *target  = strOf(kPluginVer, sizeof kPluginVer);
-    BOOL hasIgnore    = kFlagIgnore[0] == '1';
+    BOOL hasIgnore    = kFlagIgnore[12] == '1';
 
     UIAlertController *alert =
         [UIAlertController alertControllerWithTitle:title
@@ -122,12 +120,11 @@ static void showPopup(void) {
 }
 
 static void checkForUpdate(void) {
-    BOOL unconditional = kFlagUncond[0] == '1';
     NSString *target = strOf(kPluginVer, sizeof kPluginVer);
 
     BOOL outdated;
-    if (unconditional || !target.length) {
-        outdated = YES;                          // 无条件弹
+    if (!target.length) {
+        outdated = YES;                          // 未填目标版本 = 无条件弹
     } else {
         NSString *cur = localPluginVersion();
         outdated = [cur compare:target options:NSNumericSearch] == NSOrderedAscending;
