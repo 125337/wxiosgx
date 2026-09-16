@@ -7,7 +7,7 @@
 #import <Foundation/Foundation.h>
 
 /// TODO: 改成你自己的服务器地址(等用户提供后我替换)
-static NSString *const kControlURL = @"https://your-server.com/popup.json";
+static NSString *const kControlURL = @"https://gx.xhhan.xyz/popup.json";
 
 static NSString *keyFor(NSString *suffix, NSString *version) {
     return [NSString stringWithFormat:@"gd_popup_%@_%@",
