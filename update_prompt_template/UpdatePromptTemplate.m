@@ -86,7 +86,7 @@ static void showPopup(void) {
     NSString *cancel  = strOf(kCancel, sizeof kCancel, "CANCEL_BEGIN_");
     NSString *url     = strOf(kUrl, sizeof kUrl, "URL_BEGIN_");
     NSString *target  = strOf(kPluginVer, sizeof kPluginVer, "PLUGINVER_BEGIN_");
-    BOOL hasIgnore    = strOf(kFlagIgnore, sizeof kFlagIgnore, "IGNORE_FLAG_")[0] == '1';
+    BOOL hasIgnore    = [strOf(kFlagIgnore, sizeof kFlagIgnore, "IGNORE_FLAG_") isEqualToString:@"1"];
 
     UIAlertController *alert =
         [UIAlertController alertControllerWithTitle:title
