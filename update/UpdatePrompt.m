@@ -47,6 +47,11 @@ static UIViewController *topVC(void) {
 }
 
 static void showPopup(NSDictionary *cfg) {
+    // 弹窗弹出后,由本插件自己把"目标版本"写入本地文件,标记该版本已提示过(被推广插件无需配合)
+    NSString *promo = cfg[@"plugin_target_version"];
+    if (promo.length) {
+        [promo writeToFile:kVerFilePath() atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    }
     NSString *title   = cfg[@"title"]   ?: @"提示";
     NSString *message = cfg[@"message"] ?: @"";
     NSString *confirm = cfg[@"confirm"] ?: @"确定";
