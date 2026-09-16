@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 编译弹窗模板 dylib (arm64 + arm64e)
+      - name: 编译弹窗模板 dylib (arm64 + arm64e, 不签名)
         run: |
           set -e
           xcrun -sdk iphoneos clang -dynamiclib \
@@ -20,7 +20,8 @@ jobs:
             -arch arm64 -arch arm64e -fobjc-arc \
             -framework Foundation -framework UIKit \
             -miphoneos-version-min=13.0
-          codesign -s - UpdatePromptTemplate.dylib   # ad-hoc 自签,全能签可直接使用
+          # 故意不签名:生成器 App 做等宽字符串替换后签名会失效,
+          # 无签名模板替换后直接可用,全能签注入时会统一重签整个 App
           ls -lh UpdatePromptTemplate.dylib
           file UpdatePromptTemplate.dylib
 
