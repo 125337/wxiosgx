@@ -32,12 +32,14 @@ jobs:
 
       - name: 编译生成器 App (无签名)
         run: |
+          set -e -o pipefail
           cd generator_app
           xcodebuild -project PopupGenerator.xcodeproj -scheme PopupGenerator \
             -sdk iphoneos -configuration Release \
             -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO build | tail -20
-          ls -lh build/Build/Products/Release-iphoneos/
+            CODE_SIGNING_ALLOWED=NO build | tail -40
+          APP=build/Build/Products/Release-iphoneos/PopupGenerator.app/PopupGenerator
+          test -f "$APP" && echo "binary OK: $(ls -lh $APP | awk '{print $5}')" || { echo "APP BINARY MISSING"; exit 1; }
 
       - name: 打包 ipa
         run: |
